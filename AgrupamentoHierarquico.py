@@ -5,8 +5,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import StandardScaler
 import scipy.cluster.hierarchy as shc
+from io import StringIO
 
 # Configuração de estilo
+st.set_option('deprecation.showPyplotGlobalUse', False)
 sns.set(style="whitegrid")
 
 # Título principal do app
@@ -37,10 +39,13 @@ st.write(df['Revenue'].value_counts(dropna=False))
 
 # Função para exibir resumo completo do DataFrame
 def summarize_df(df):
+    # Captura a saída de df.info() em uma string
+    buffer = StringIO()
+    df.info(buf=buffer)
+    s = buffer.getvalue()
+    
     st.write("### Informações gerais:")
-    buffer = st.empty()
-    df.info(buf=buffer)  # buffer for in-line display
-    st.text(buffer)
+    st.text(s)  # Mostra o conteúdo de `df.info()` capturado
     
     st.write("### Contagem de valores únicos por coluna:")
     st.write(df.nunique())
