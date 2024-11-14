@@ -7,7 +7,6 @@ from sklearn.preprocessing import StandardScaler
 import scipy.cluster.hierarchy as shc
 
 # Configuração de estilo
-st.set_option('deprecation.showPyplotGlobalUse', False)
 sns.set(style="whitegrid")
 
 # Título principal do app
