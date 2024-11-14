@@ -1,152 +1,143 @@
-# Imports
+import streamlit as st
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import streamlit as st
-from sklearn.preprocessing._data import StandardScaler
+from sklearn.preprocessing import StandardScaler
 import scipy.cluster.hierarchy as shc
-from io import BytesIO
 
+# Configuração do estilo do Streamlit e do Matplotlib
+st.set_option('deprecation.showPyplotGlobalUse', False)
+sns.set(style="whitegrid")
 
-# Funções auxiliares para conversão de DataFrame
-@st.cache_data
-def convert_df_to_csv(df):
-    """Converte um DataFrame para CSV codificado em UTF-8."""
-    return df.to_csv(index=False).encode('utf-8')
+# Carregamento do dataset
+st.title("Análise de Clusters em Dados de Intenção de Compras Online")
+df = pd.read_csv('online_shoppers_intention.csv')
+df.index.name = 'id'
 
+st.subheader("Primeiras linhas do DataFrame")
+st.write(df.head())
 
-@st.cache_data
-def convert_df_to_excel(df):
-    """Converte um DataFrame para um arquivo Excel em Bytes, para download."""
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Sheet1')
-        writer.save()
-    return output.getvalue()
+# Exibição da contagem de Revenue
+st.subheader("Contagem de Revenue")
+st.write(df['Revenue'].value_counts(dropna=False))
 
-
-# Função de resumo do DataFrame
+# Função para exibir resumo completo do DataFrame
 def summarize_df(df):
-    """Exibe um resumo completo do DataFrame, incluindo informações gerais, contagem de valores únicos, ausentes e estatísticas."""
-    st.write("### Resumo do DataFrame")
-    st.write("Informações gerais:")
-    st.write(df.info())
-    st.write("\nContagem de valores únicos por coluna:")
+    st.write("### Informações gerais:")
+    buffer = st.empty()
+    df.info(buf=buffer)  # buffer for in-line display
+    st.text(buffer)
+    
+    st.write("### Contagem de valores únicos por coluna:")
     st.write(df.nunique())
-    st.write("\nContagem de valores ausentes por coluna:")
+    
+    st.write("### Contagem de valores ausentes por coluna:")
     st.write(df.isna().sum())
-    st.write("\nResumo estatístico:")
+    
+    st.write("### Resumo estatístico:")
     st.write(df.describe())
 
+summarize_df(df)
 
-# Função para realizar o upload de arquivo
-def upload_file():
-    """Realiza o upload do arquivo CSV ou XLS e retorna um DataFrame."""
-    data_file = st.sidebar.file_uploader("Carregar arquivo CSV ou XLS", type=['csv', 'xlsx'])
-    if data_file:
-        if data_file.name.endswith('.csv'):
-            df = pd.read_csv(data_file)
-        elif data_file.name.endswith('.xlsx'):
-            df = pd.read_excel(data_file)
-        else:
-            st.error("Tipo de arquivo não suportado!")
-            return None
-        return df
-    else:
-        return None
+# Separando variáveis qualitativas e numéricas
+qualitative_vars = df.select_dtypes(include=['object']).columns
+numerical_vars = df.select_dtypes(include=['number']).columns
 
+st.write("Variáveis qualitativas:", qualitative_vars)
+st.write("Variáveis numéricas:", numerical_vars)
 
-# Função principal para análise de agrupamento hierárquico
-def hierarchical_clustering(df):
-    """Realiza a análise de agrupamento hierárquico no DataFrame fornecido."""
-    # Separar variáveis qualitativas e numéricas
-    qualitative_vars = df.select_dtypes(include=['object']).columns
-    numerical_vars = df.select_dtypes(include=['number']).columns
+# Codificação de variáveis qualitativas
+df_encoded = pd.get_dummies(df, columns=qualitative_vars, drop_first=True)
+df_encoded = df_encoded.drop(columns=['OperatingSystems', 'Browser', 'Region', 'TrafficType', 'Revenue'])
 
-    # Codificar variáveis qualitativas
-    df_encoded = pd.get_dummies(df, columns=qualitative_vars, drop_first=True)
+# Padronização
+scaler = StandardScaler()
+df_scaled = scaler.fit_transform(df_encoded)
 
-    # Remover variáveis não utilizadas
-    df_encoded = df_encoded.drop(columns=['OperatingSystems', 'Browser', 'Region', 'TrafficType', 'Revenue'],
-                                 errors='ignore')
+# Dendrograma para 3 e 4 grupos
+st.subheader("Dendrogramas para 3 e 4 grupos")
+linkage_matrix = shc.linkage(df_scaled, method='ward')
 
-    # Padronização dos dados
-    scaler = StandardScaler()
-    df_scaled = scaler.fit_transform(df_encoded)
+fig, ax = plt.subplots(figsize=(10, 6))
+plt.title("Dendrograma para 3 grupos")
+shc.dendrogram(linkage_matrix, truncate_mode='lastp', p=3)
+st.pyplot(fig)
 
-    # Calcular a matriz de ligação e plotar dendrogramas
-    linkage_matrix = shc.linkage(df_scaled, method='ward')
-    st.write("### Dendrograma para 3 grupos")
-    plt.figure(figsize=(10, 6))
-    shc.dendrogram(linkage_matrix, truncate_mode='lastp', p=3)
-    st.pyplot(plt)
+fig, ax = plt.subplots(figsize=(10, 6))
+plt.title("Dendrograma para 4 grupos")
+shc.dendrogram(linkage_matrix, truncate_mode='lastp', p=4)
+st.pyplot(fig)
 
-    st.write("### Dendrograma para 4 grupos")
-    plt.figure(figsize=(10, 6))
-    shc.dendrogram(linkage_matrix, truncate_mode='lastp', p=4)
-    st.pyplot(plt)
+# Clusterização e contagem dos elementos em cada cluster
+clusters3 = shc.fcluster(linkage_matrix, t=169, criterion='distance')
+df_encoded['cluster3'] = clusters3
 
-    # Formar clusters e adicioná-los ao DataFrame
-    clusters3 = shc.fcluster(linkage_matrix, t=169, criterion='distance')
-    clusters4 = shc.fcluster(linkage_matrix, t=166, criterion='distance')
-    df_encoded['cluster3'] = clusters3
-    df_encoded['cluster4'] = clusters4
+clusters4 = shc.fcluster(linkage_matrix, t=166, criterion='distance')
+df_encoded['cluster4'] = clusters4
 
-    # Visualizar a contagem dos clusters
-    st.write("\nContagem de elementos em cada cluster (3 clusters):")
-    st.write(df_encoded['cluster3'].value_counts())
+st.write("Contagem de elementos em cada cluster, para 3 clusters:", df_encoded['cluster3'].value_counts())
+st.write("Contagem de elementos em cada cluster, para 4 clusters:", df_encoded['cluster4'].value_counts())
 
-    st.write("\nContagem de elementos em cada cluster (4 clusters):")
-    st.write(df_encoded['cluster4'].value_counts())
+# Gráficos de distribuição dos clusters
+st.subheader("Distribuição dos Clusters")
+fig, ax = plt.subplots(figsize=(6, 4))
+sns.countplot(x='cluster3', data=df_encoded, ax=ax)
+plt.title('Distribuição dos Clusters - 3 grupos')
+st.pyplot(fig)
 
-    # Mesclar clusters no DataFrame original e retornar o resultado
-    df = df.merge(df_encoded[['cluster3', 'cluster4']], on='id', how='left')
-    return df, df_encoded
+fig, ax = plt.subplots(figsize=(6, 4))
+sns.countplot(x='cluster4', data=df_encoded, ax=ax)
+plt.title('Distribuição dos Clusters - 4 grupos')
+st.pyplot(fig)
 
+# Merge dos clusters com o DataFrame original
+df = df.merge(df_encoded[['cluster3', 'cluster4']], on='id', how='left')
 
-# Função para visualização dos clusters
-def plot_clusters(df):
-    """Gera visualizações para distribuição dos clusters e porcentagem de Revenue por cluster."""
-    # Visualizar distribuição dos clusters
-    st.write("### Distribuição dos Clusters - 3 grupos")
-    sns.countplot(x='cluster3', data=df)
-    plt.title('Distribuição dos Clusters - 3 grupos')
-    st.pyplot(plt)
+# Contagem de Revenue 0 e 1 por Cluster
+st.subheader("Contagem de Revenue 0 e 1 por Cluster - 3 e 4 grupos")
+count_revenue3 = df.groupby(['cluster3', 'Revenue']).size().unstack(fill_value=0)
 
-    st.write("### Distribuição dos Clusters - 4 grupos")
-    sns.countplot(x='cluster4', data=df)
-    plt.title('Distribuição dos Clusters - 4 grupos')
-    st.pyplot(plt)
+fig, ax = plt.subplots(figsize=(6, 4))
+count_revenue3.plot(kind='bar', stacked=True, ax=ax)
+plt.title('Contagem de Revenue 0 e 1 por Cluster - 3 grupos')
+st.pyplot(fig)
 
+count_revenue4 = df.groupby(['cluster4', 'Revenue']).size().unstack(fill_value=0)
 
-# Função principal da aplicação
-def main():
-    st.set_page_config(page_title="Análise de Agrupamento Hierárquico", layout="wide")
-    st.title("Análise de Agrupamento Hierárquico - Segmentação de Clientes")
+fig, ax = plt.subplots(figsize=(6, 4))
+count_revenue4.plot(kind='bar', stacked=True, ax=ax)
+plt.title('Contagem de Revenue 0 e 1 por Cluster - 4 grupos')
+st.pyplot(fig)
 
-    # Upload do arquivo
-    df = upload_file()
-    if df is not None:
-        st.write("### Visualização dos Dados Carregados")
-        st.write(df.head())
+# Porcentagem de Revenue == True por Cluster
+st.subheader("Porcentagem de Revenue 1 por Cluster - 3 e 4 grupos")
+percentage_revenue_1_3 = df.groupby('cluster3')['Revenue'].mean() * 100
 
-        # Exibir resumo do DataFrame
-        summarize_df(df)
+fig, ax = plt.subplots(figsize=(6, 4))
+plt.bar(percentage_revenue_1_3.index, percentage_revenue_1_3.values)
+plt.title('Porcentagem de Revenue 1 por Cluster - 3 grupos')
+st.pyplot(fig)
 
-        # Executar análise de agrupamento hierárquico
-        df, df_encoded = hierarchical_clustering(df)
+percentage_revenue_1_4 = df.groupby('cluster4')['Revenue'].mean() * 100
 
-        # Exibir visualizações dos clusters
-        plot_clusters(df)
+fig, ax = plt.subplots(figsize=(6, 4))
+plt.bar(percentage_revenue_1_4.index, percentage_revenue_1_4.values)
+plt.title('Porcentagem de Revenue 1 por Cluster - 4 grupos')
+st.pyplot(fig)
 
-        # Download do DataFrame final
-        df_xlsx = convert_df_to_excel(df)
-        st.download_button(label="📥 Download do Resultado", data=df_xlsx,
-                           file_name="Resultado_Agrupamento_Hierarquico.xlsx")
-        st.write("### Dados com Clusters")
-        st.write(df.head())
+# Boxplot de BounceRates por Cluster
+st.subheader("Distribuição de Bounce Rates por Cluster - 4 grupos")
+fig, ax = plt.subplots(figsize=(10, 6))
+sns.boxplot(x='cluster4', y='BounceRates', data=df, ax=ax)
+plt.title('Distribuição de Bounce Rates por Cluster')
+st.pyplot(fig)
 
+# Avaliação de Month por Cluster
+st.subheader("Contagem de Month por Cluster")
+count_month = df.groupby(['cluster4', 'Month']).size().unstack(fill_value=0)
 
-if __name__ == "__main__":
-    main()
+fig, ax = plt.subplots(figsize=(10, 6))
+count_month.plot(kind='bar', stacked=True, ax=ax)
+plt.title('Contagem de Month por Cluster')
+st.pyplot(fig)
