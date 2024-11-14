@@ -152,4 +152,6 @@ st.subheader("Contagem de Month por Cluster")
 count_month = df.groupby(['cluster4', 'Month']).size().unstack(fill_value=0)
 
 fig, ax = plt.subplots(figsize=(10, 6))
-count_month.plot(kind='bar',
+count_month.plot(kind='bar', stacked=True, ax=ax)
+plt.title('Contagem de Month por Cluster')
+st.pyplot(fig)
