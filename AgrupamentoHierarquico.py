@@ -6,19 +6,33 @@ import seaborn as sns
 from sklearn.preprocessing import StandardScaler
 import scipy.cluster.hierarchy as shc
 
-# Configuração do estilo do Streamlit e do Matplotlib
+# Configuração de estilo
 st.set_option('deprecation.showPyplotGlobalUse', False)
 sns.set(style="whitegrid")
 
-# Carregamento do dataset
+# Título principal do app
 st.title("Análise de Clusters em Dados de Intenção de Compras Online")
-df = pd.read_csv('online_shoppers_intention.csv')
-df.index.name = 'id'
 
+# Barra lateral para upload do arquivo
+st.sidebar.header("Upload do Arquivo")
+uploaded_file = st.sidebar.file_uploader("Selecione um arquivo CSV ou XLS", type=["csv", "xls", "xlsx"])
+
+# Função para carregar o dataset com base no tipo de arquivo
+if uploaded_file is not None:
+    if uploaded_file.name.endswith('.csv'):
+        df = pd.read_csv(uploaded_file)
+    else:
+        df = pd.read_excel(uploaded_file)
+    df.index.name = 'id'
+else:
+    st.warning("Por favor, faça o upload de um arquivo para iniciar a análise.")
+    st.stop()  # Interrompe o código até que um arquivo seja carregado
+
+# Exibindo o dataset inicial
 st.subheader("Primeiras linhas do DataFrame")
 st.write(df.head())
 
-# Exibição da contagem de Revenue
+# Exibindo a contagem de Revenue
 st.subheader("Contagem de Revenue")
 st.write(df['Revenue'].value_counts(dropna=False))
 
@@ -138,6 +152,4 @@ st.subheader("Contagem de Month por Cluster")
 count_month = df.groupby(['cluster4', 'Month']).size().unstack(fill_value=0)
 
 fig, ax = plt.subplots(figsize=(10, 6))
-count_month.plot(kind='bar', stacked=True, ax=ax)
-plt.title('Contagem de Month por Cluster')
-st.pyplot(fig)
+count_month.plot(kind='bar',
