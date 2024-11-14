@@ -8,8 +8,7 @@ import scipy.cluster.hierarchy as shc
 from io import StringIO
 
 # Título e descrição do aplicativo
-st.title("Análise de Clusters em Dados de Intenção de Compras Online")
-st.write("Este aplicativo realiza uma análise de clusters com base nos padrões de navegação dos usuários.")
+st.title("Clusterização de Dados de Intenção de Compras Online")
 
 # Barra lateral para upload do arquivo
 st.sidebar.header("Upload do Arquivo")
@@ -24,22 +23,6 @@ def load_data(file):
     else:
         st.error("Tipo de arquivo não suportado.")
         return None
-
-# Função para exibir um resumo do DataFrame
-def summarize_df(df):
-    st.write("### Informações Gerais:")
-    buffer = StringIO()
-    df.info(buf=buffer)
-    st.text(buffer.getvalue())
-
-    st.write("### Contagem de Valores Únicos por Coluna:")
-    st.write(df.nunique())
-
-    st.write("### Contagem de Valores Ausentes por Coluna:")
-    st.write(df.isna().sum())
-
-    st.write("### Resumo Estatístico:")
-    st.write(df.describe())
 
 # Função para análise de cluster
 def perform_clustering(df):
@@ -63,15 +46,6 @@ def perform_clustering(df):
     df_encoded['cluster3'] = clusters3
     df_encoded['cluster4'] = clusters4
 
-    st.write("Contagem de elementos por cluster (3 clusters):")
-    st.write(df_encoded['cluster3'].value_counts())
-    st.write("Contagem de elementos por cluster (4 clusters):")
-    st.write(df_encoded['cluster4'].value_counts())
-
-    # Gráficos de distribuição dos clusters
-    plot_cluster_distribution(df_encoded, 'cluster3', title="Distribuição dos Clusters - 3 grupos")
-    plot_cluster_distribution(df_encoded, 'cluster4', title="Distribuição dos Clusters - 4 grupos")
-
     # Mesclando clusters com o DataFrame original
     df['cluster3'] = clusters3
     df['cluster4'] = clusters4
@@ -83,14 +57,6 @@ def plot_dendrogram(linkage_matrix, num_clusters):
     plt.figure(figsize=(10, 6))
     plt.title(f"Dendrograma para {num_clusters} grupos")
     shc.dendrogram(linkage_matrix, truncate_mode='lastp', p=num_clusters)
-    st.pyplot(plt.gcf())
-    plt.clf()
-
-# Função para plotar a distribuição dos clusters
-def plot_cluster_distribution(df, cluster_col, title):
-    plt.figure(figsize=(6, 4))
-    sns.countplot(x=cluster_col, data=df)
-    plt.title(title)
     st.pyplot(plt.gcf())
     plt.clf()
 
@@ -110,9 +76,6 @@ if uploaded_file:
     if data is not None:
         st.subheader("Dados Carregados")
         st.write(data.head())
-
-        # Exibe resumo do DataFrame
-        summarize_df(data)
 
         # Realiza a análise de cluster
         data_clustered = perform_clustering(data)
