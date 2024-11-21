@@ -10,6 +10,10 @@ from io import StringIO
 # Título e descrição do aplicativo
 st.title("Clusterização de Dados de Intenção de Compras Online")
 
+# Inicializando o estado da aplicação para armazenar o DataFrame
+if "data" not in st.session_state:
+    st.session_state["data"] = None
+
 # Barra lateral para upload do arquivo
 st.sidebar.header("Upload do Arquivo")
 uploaded_file = st.sidebar.file_uploader("Selecione um arquivo CSV ou XLS", type=["csv", "xls", "xlsx"])
@@ -83,21 +87,24 @@ def download_button(dataframe, filename="data.csv"):
 
 # Processamento do arquivo
 if uploaded_file:
-    data = load_data(uploaded_file)
-    if data is not None:
-        st.subheader("Dados Carregados")
-        st.write(data.head())
+    # Carregar dados apenas se um novo arquivo for enviado
+    if st.session_state["data"] is None or st.session_state["data"].equals(load_data(uploaded_file)) is False:
+        st.session_state["data"] = load_data(uploaded_file)
 
-        # Realiza a análise de cluster
-        data_clustered = perform_clustering(data)
+if st.session_state["data"] is not None:
+    data = st.session_state["data"]
+    st.subheader("Dados Carregados")
+    st.write(data.head())
 
-        if data_clustered is not None:
-            # Exibe os clusters criados
-            st.subheader("Dados com Clusters")
-            st.write(data_clustered.head())
+    # Realiza a análise de cluster
+    data_clustered = perform_clustering(data)
 
-            # Permite download do DataFrame com clusters
-            download_button(data_clustered, filename="dados_clusterizados.csv")
+    if data_clustered is not None:
+        # Exibe os clusters criados
+        st.subheader("Dados com Clusters")
+        st.write(data_clustered.head())
+
+        # Permite download do DataFrame com clusters
+        download_button(data_clustered, filename="dados_clusterizados.csv")
 else:
     st.warning("Por favor, faça o upload de um arquivo para iniciar a análise.")
-
